@@ -1,5 +1,5 @@
 /**
- * Created by Administrator on 2017/2/24.
+ * Created by zhangcl07 on 2017/2/24.
  */
 ;(function(root, document){
     /**
@@ -11,68 +11,36 @@
     function Pit(opt){
         var self = this;
         // 将数据挂到this上，方便调用
-        this.transformData.call(self, opt);
+        this.transformData.call(this, opt);
         // 初始化此坑
         this.init();
     }
     // Define methods
     Pit.prototype = {
-        l: function(key){
-            console.log(this[key]);
-        },
+        constructor: Pit,
         /**
-         * 简单的dom选择器
-         * @param selector 类似jquery
-         * @returns {NodeList}
-         */
-        $: function(selector){
-            return document.querySelectorAll(selector || this.el)
-        },
-        /**
-         * Pit渲染
+         * Pit初始化
          */
         init: function(){
-            var that = this;
+            var self = this;
             // 生成dom
-            var pitDom = this.$(this.el);
+            var pitDom = $p(this.el);
             this.$el = pitDom[0];
-            var models = this.$(this.el+" [p-model]"),
-                inText = this.$(this.el+" [p-text]");
+            var models = $p(this.el+" [p-model]"),
+                inText = $p(this.el+" [p-text]");
             // console.log(models,inText);
             // 给所有p-model赋值
             models.forEach(function(c){
-                c.value = that[c.getAttribute('p-model')]
+                c.value = self[c.getAttribute('p-model')]
             });
             inText.forEach(function(c){
-                that.pText(c)
+                self.pText(c)
             });
 
-            models.on("keyup",function(e){
+            models.on("keypress",function(e){
                 // console.log(this);
-                that[this.getAttribute('p-model')] = this.value;
+                self[this.getAttribute('p-model')] = this.value;
             })
-        },
-
-        /**
-         * object合并函数 copy form zepto
-         * @param target 合并目标项
-         * @param source 要合并项
-         * @param deep 默认true
-         */
-        extend: function (target, source, deep) {
-            if(typeof deep != 'boolean')deep = true;
-            for (var key in source) {
-                if (deep && (isPlainObject(source[key]) || isArray(source[key]))) {
-                    if (isPlainObject(source[key]) && !isPlainObject(target[key]))
-                        target[key] = {};
-                    if (isArray(source[key]) && !isArray(target[key]))
-                        target[key] = [];
-                    this.extend(target[key], source[key], deep)
-                }
-                else if (source[key] !== undefined) target[key] = source[key]
-            }
-
-            return target
         },
         /**
          * 改造数据，将options的属性添加到构造函数上
@@ -80,42 +48,48 @@
          * @returns {Pit}
          */
         transformData: function(options){
-            var self = this;
-            for(var key in options){
-                // 如果是对象，递归下面的key挂到this上
-                if(isPlainObject(options[key])){
-                    for(var k in options[key]){
-                        if(key === 'data'){
-                            setTimeout((function(k){
-                                var _value = options[key][k];
-                                // console.log(_value);
-                                Object.defineProperty(self, k, {
-                                    get: function(){
-                                        return _value
-                                    },
-                                    set: function(v){
-                                        _value = v;
-                                        // 渲染view层
-                                        self.render(k, v)
-                                    }
-                                    // value: options[key][k]
-                                })
-                            })(k),0);
-                        }else{
-                            self[k] = options[key][k];
-                        }
-
-                    }
+            var newObj = {};
+            for (var key in options) {
+                if (isPlainObject(options[key]) || isArray(options[key])) {
+                    extend(newObj, options[key], false)
                 }
-                // 其他直接挂在到this上
-                else{
-                    self[key] = options[key]
+                else if (options[key] !== undefined) this[key] = options[key]
+            }
+            return this.deepSetter(this, newObj);
+        },
+        deepSetter: function(target, source){
+            var self = this;
+            // console.log(this);
+            for (var key in source) {
+                if (isPlainObject(source[key]) || isArray(source[key])) {
+                    if (isPlainObject(source[key]) && !isPlainObject(target[key]))
+                        target[key] = {};
+                    if (isArray(source[key]) && !isArray(target[key]))
+                        target[key] = [];
+                    this.deepSetter(target[key], source[key])
+                }
+                else if (source[key] !== undefined) {
+                    (function(key){
+                        var _value = source[key];
+                        // console.log(source.constructor().name)
+                        Object.defineProperty(target, key, {
+                            get: function(){
+                                return _value
+                            },
+                            set: function(v){
+                                _value = v;
+                                // 渲染view层 todo key并不是想要的friend.name
+                                self.render(key, v)
+                            }
+                        })
+                    })(key);
+
                 }
             }
-            return self
+            return target
         },
         /**
-         * 在上面创建
+         * p-text方法
          * @param c
          */
         pText: function(c){
@@ -126,14 +100,17 @@
             op.appendChild(oText);
             //先附加在文档碎片中
             oFragmeng.appendChild(op);
-            // 清空再append文档
+            // 清空再append文档碎片
             c.innerHTML = "";
             c.appendChild(oFragmeng);
         },
-        render: function(name){
+        render: function(name,value){
             var self = this;
-            this.$el.querySelectorAll("[p-text="+name+"]").forEach(function(c){
+            $p(this.$el, "[p-text="+name+"]").forEach(function(c){
                 self.pText(c)
+            });
+            $p(this.$el, "[p-model="+name+"]").forEach(function(c){
+                c.value = value
             })
         }
     };
@@ -143,11 +120,46 @@
     function isArray(obj){
         return Array.isArray(obj);
     }
+    /**
+     * object合并函数 copy form zepto
+     * @param target 合并目标项
+     * @param source 要合并项
+     * @param deep 默认true
+     */
+    function extend(target, source, deep) {
+        if(typeof deep != 'boolean')deep = true;
+        for (var key in source) {
+            if (deep && (isPlainObject(source[key]) || isArray(source[key]))) {
+                if (isPlainObject(source[key]) && !isPlainObject(target[key]))
+                    target[key] = {};
+                if (isArray(source[key]) && !isArray(target[key]))
+                    target[key] = [];
+                extend(target[key], source[key], deep)
+            }
+            else if (source[key] !== undefined) target[key] = source[key]
+        }
+
+        return target
+    }
+
+    /**
+     * 简单的dom选择器
+     * @param selector
+     * @returns {NodeList}
+     */
+    function $p(selector, child){
+        if(typeof child === "undefined"){
+            return document.querySelectorAll(selector)
+        }else{
+            return selector.querySelectorAll(child)
+        }
+    }
 
     //绑定事件
     Element.prototype.on = Element.prototype.addEventListener;
     Element.prototype.off = Element.prototype.removeEventListener;
     NodeList.prototype.on = function (event, fn) {
+        // event.trim();
         []['forEach'].call(this, function (el) {
             el.on(event, fn);
         });
@@ -159,6 +171,9 @@
         });
         return this;
     };
+    NodeList.prototype.find = function(selector){
+        return this.querySelectorAll(selector)
+    };
 
     root.Pit = Pit;
-})(this,document);
+})(this, document);
