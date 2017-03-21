@@ -31,16 +31,20 @@
             // console.log(models,inText);
             // 给所有p-model赋值
             models.forEach(function(c){
-                c.value = self[c.getAttribute('p-model')]
+                c.value = self.deepGetter(c, 'p-model')
             });
             inText.forEach(function(c){
                 self.pText(c)
             });
 
             models.on("keypress",function(e){
-                // console.log(this);
-                self[this.getAttribute('p-model')] = this.value;
+                var _model = this.getAttribute("p-model");
+                eval('self.' + _model +' = this.value');
+                self.render(_model, this.value)
             })
+        },
+        deepGetter: function(c, attr){
+            return eval('this.' + c.getAttribute(attr));
         },
         /**
          * 改造数据，将options的属性添加到构造函数上
@@ -71,15 +75,12 @@
                 else if (source[key] !== undefined) {
                     (function(key){
                         var _value = source[key];
-                        // console.log(source.constructor().name)
                         Object.defineProperty(target, key, {
                             get: function(){
                                 return _value
                             },
                             set: function(v){
                                 _value = v;
-                                // 渲染view层 todo key并不是想要的friend.name
-                                self.render(key, v)
                             }
                         })
                     })(key);
@@ -93,10 +94,11 @@
          * @param c
          */
         pText: function(c){
+            var _val = this.deepGetter(c, 'p-text');
             // 创建文档碎片
             var oFragmeng = document.createDocumentFragment(),
                 op = document.createElement("span"),
-                oText = document.createTextNode(this[c.getAttribute('p-text')]);
+                oText = document.createTextNode(_val);
             op.appendChild(oText);
             //先附加在文档碎片中
             oFragmeng.appendChild(op);
@@ -106,10 +108,10 @@
         },
         render: function(name,value){
             var self = this;
-            $p(this.$el, "[p-text="+name+"]").forEach(function(c){
+            $p(this.$el, "[p-text='"+name+"']").forEach(function(c){
                 self.pText(c)
             });
-            $p(this.$el, "[p-model="+name+"]").forEach(function(c){
+            $p(this.$el, "[p-model='"+name+"']").forEach(function(c){
                 c.value = value
             })
         }
