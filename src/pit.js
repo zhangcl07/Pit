@@ -1,6 +1,6 @@
 /**
  * Created by zhangcl07 on 2017/2/24.
- * 功能简单，自娱自乐，并没有根据状态来渲染。。。
+ * 功能简单，自娱自乐，并没有根据状态来渲染。。。而且还在操作dom[笑哭]
  */
 ;(function(root, document){
     /**
@@ -27,11 +27,14 @@
             // 生成dom
             var pitDom = $p(this.el);
             this.$el = pitDom[0];
-            var models = $p(this.el+" [p-model]"),
-                inText = $p(this.el+" [p-text]");
-            // console.log(models,inText);
+            var models = $p(this.el, "[p-model]"),
+                inText = $p(this.el, "[p-text]"),
+                radioChecked = $p(this.el, "[p-model][type='radio']"),
+                boxChecked = $p(this.el, "[p-model][type='checkbox']");
+            console.log(radioChecked);
             // 给所有p-model赋值
             models.forEach(function(c){
+                if(c.type === 'radio' || c.type === 'checkbox')return;
                 c.value = self.deepGetter(c, 'p-model')
             });
             inText.forEach(function(c){
@@ -44,7 +47,7 @@
             models.on("keyup", function(e){
                 // console.log(e.keyCode);
                 /**
-                 * 8: 退格、46: del
+                 * 退格:8、Del:46
                  */
                 if(e.keyCode === 8 || e.keyCode === 46){
                     viewChange(this);
@@ -56,6 +59,36 @@
                 eval('self.' + _model +' = c.value');
                 self.render(_model, c.value)
             }
+            radioChecked.forEach(function(c){
+                c.checked = (function(c){
+                    var exp = self.deepGetter(c, 'p-model');
+                    // console.log(c.value, exp, c.value == exp);
+                    return c.value == exp;
+                })(c)
+            });
+            radioChecked.on("change",function(e){
+                var _model = this.getAttribute("p-model");
+                eval('self.' + _model +' = this.value');
+            });
+
+            boxChecked.forEach(function(c){
+                c.checked = (function(c){
+                    var exp = self.deepGetter(c, 'p-model');
+                    return exp.indexOf(c.value)>=0;
+                })(c)
+            });
+            boxChecked.on("change",function(e){
+                var _model = this.getAttribute("p-model");
+                var allChecked = self.deepGetter(this, "p-model");
+                var _index = allChecked.indexOf(this.value);
+                console.log(allChecked);
+                if(this.checked && _index<0){
+                    allChecked.push(this.value)
+                }else if(!this.checked && _index>=0){
+                    allChecked.splice(_index,1)
+                }
+                console.log(self.fruit);
+            })
         },
         deepGetter: function(c, attr){
             return eval('this.' + c.getAttribute(attr));
@@ -122,22 +155,33 @@
         },
         render: function(name,value){
             var self = this;
-            $p(this.$el, "[p-text='"+name+"']").forEach(function(c){
+            $p(this.el, "[p-text='"+name+"']").forEach(function(c){
                 self.pText(c)
             });
-            $p(this.$el, "[p-model='"+name+"']").forEach(function(c){
+            $p(this.el, "[p-model='"+name+"']").forEach(function(c){
                 c.value = value
             })
         }
     };
+
+    /**
+     * 判断是否为真对象
+     * @param obj
+     * @returns {boolean}
+     */
     function isPlainObject(obj) {
         return Object.prototype.toString.call( obj ) === "[object Object]";
     }
+    /**
+     * 判断是否为数组
+     * @param obj
+     * @returns {boolean}
+     */
     function isArray(obj){
         return Array.isArray(obj);
     }
     /**
-     * object合并函数 copy form zepto
+     * object合并函数
      * @param target 合并目标项
      * @param source 要合并项
      * @param deep 默认true
@@ -167,7 +211,7 @@
         if(typeof child === "undefined"){
             return document.querySelectorAll(selector)
         }else{
-            return selector.querySelectorAll(child)
+            return $p(selector)[0].querySelectorAll(child)
         }
     }
 
@@ -193,12 +237,22 @@
         });
         return this;
     };
+    /**
+     * NodeList添加forEach方法
+     * @param fn
+     * @returns {NodeList}
+     */
     NodeList.prototype.forEach = function(fn){
         []['forEach'].call(this, fn);
         return this
     };
+    /**
+     * NodeList添加find方法
+     * @param selector
+     * @returns {NodeList}
+     */
     NodeList.prototype.find = function(selector){
-        return this.querySelectorAll(selector)
+        return $p(this[0], selector);
     };
 
     root.Pit = Pit;
