@@ -1,5 +1,6 @@
 /**
  * Created by zhangcl07 on 2017/2/24.
+ * 功能简单，自娱自乐，并没有根据状态来渲染。。。
  */
 ;(function(root, document){
     /**
@@ -37,11 +38,24 @@
                 self.pText(c)
             });
 
-            models.on("keypress",function(e){
-                var _model = this.getAttribute("p-model");
-                eval('self.' + _model +' = this.value');
-                self.render(_model, this.value)
-            })
+            models.on("input",function(e){
+                viewChange(this);
+            });
+            models.on("keyup", function(e){
+                // console.log(e.keyCode);
+                /**
+                 * 8: 退格、46: del
+                 */
+                if(e.keyCode === 8 || e.keyCode === 46){
+                    viewChange(this);
+                }
+            });
+            function viewChange(c){
+                // console.log(c.value);
+                var _model = c.getAttribute("p-model");
+                eval('self.' + _model +' = c.value');
+                self.render(_model, c.value)
+            }
         },
         deepGetter: function(c, attr){
             return eval('this.' + c.getAttribute(attr));
@@ -157,25 +171,36 @@
         }
     }
 
+    // console.log(Object.prototype.toString.call(Event));
     //绑定事件
     Element.prototype.on = Element.prototype.addEventListener;
     Element.prototype.off = Element.prototype.removeEventListener;
+    Element.prototype.trigger = function(event){
+        var myEvent = new Event(event);
+        this.dispatchEvent(myEvent);
+    };
     NodeList.prototype.on = function (event, fn) {
-        // event.trim();
+        (typeof event === 'string') && event.trim();
         []['forEach'].call(this, function (el) {
             el.on(event, fn);
         });
         return this;
     };
     NodeList.prototype.trigger = function (event) {
+        (typeof event === 'string') && event.trim();
         []['forEach'].call(this, function (el) {
             el['trigger'](event);
         });
         return this;
+    };
+    NodeList.prototype.forEach = function(fn){
+        []['forEach'].call(this, fn);
+        return this
     };
     NodeList.prototype.find = function(selector){
         return this.querySelectorAll(selector)
     };
 
     root.Pit = Pit;
+
 })(this, document);
