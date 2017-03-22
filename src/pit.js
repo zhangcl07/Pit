@@ -3,6 +3,26 @@
  * 功能简单，自娱自乐，并没有根据状态来渲染。。。而且还在操作dom[笑哭]
  */
 ;(function(root, document){
+
+    var cfg = function(val,fn){
+            return {
+                get: function(){return val},
+                set: function(v){
+                    if(val === v)return;
+                    val = v;
+                    fn&&fn(v)
+                },
+                enumerable: true,
+                configurable : true
+            }
+        },
+        def = function (obj, key, val, fn) {
+            Object.defineProperty(obj, key, cfg(val,fn))
+        },
+        slice    = [].slice,
+        hasProto = ({}).__proto__,
+        ArrayProxy = Object.create(Array.prototype);
+
     /**
      * 构造函数
      * @param opt 默认参数见this.options
@@ -15,6 +35,7 @@
         this.transformData.call(this, opt);
         // 初始化此坑
         this.init();
+        this.modelName="";
     }
     // Define methods
     Pit.prototype = {
@@ -27,11 +48,11 @@
             // 生成dom
             var pitDom = $p(this.el);
             this.$el = pitDom[0];
-            var models = $p(this.el, "[p-model]"),
-                inText = $p(this.el, "[p-text]"),
-                radioChecked = $p(this.el, "[p-model][type='radio']"),
-                boxChecked = $p(this.el, "[p-model][type='checkbox']");
-            console.log(radioChecked);
+            var models = $p(this.el, "[p-model]"),// 所有p-model
+                inText = $p(this.el, "[p-text]"), // 所有需要p-text的元素
+                radioChecked = $p(this.el, "[p-model][type='radio']"),// 所有radio
+                boxChecked = $p(this.el, "[p-model][type='checkbox']"); // 所有checkbox
+            // console.log(radioChecked);
             // 给所有p-model赋值
             models.forEach(function(c){
                 if(c.type === 'radio' || c.type === 'checkbox')return;
@@ -60,15 +81,17 @@
                 self.render(_model, c.value)
             }
             radioChecked.forEach(function(c){
-                c.checked = (function(c){
+                c.checked = function(c){
                     var exp = self.deepGetter(c, 'p-model');
                     // console.log(c.value, exp, c.value == exp);
                     return c.value == exp;
-                })(c)
+                }
             });
             radioChecked.on("change",function(e){
                 var _model = this.getAttribute("p-model");
+                if(_model == this.value)return;
                 eval('self.' + _model +' = this.value');
+                // self.render(_model, this.value)
             });
 
             boxChecked.forEach(function(c){
@@ -81,13 +104,13 @@
                 var _model = this.getAttribute("p-model");
                 var allChecked = self.deepGetter(this, "p-model");
                 var _index = allChecked.indexOf(this.value);
-                console.log(allChecked);
-                if(this.checked && _index<0){
-                    allChecked.push(this.value)
-                }else if(!this.checked && _index>=0){
+                // console.log(allChecked);
+                if(this.checked && _index<0){ // 选中且数组中没有此项
+                    def(allChecked, allChecked.length+1, this.value);
+                }else if(!this.checked && _index>=0){ // 未选中且数组中有此项
                     allChecked.splice(_index,1)
                 }
-                console.log(self.fruit);
+                // console.log(self.fruit);
             })
         },
         deepGetter: function(c, attr){
@@ -116,18 +139,22 @@
                     if (isPlainObject(source[key]) && !isPlainObject(target[key]))
                         target[key] = {};
                     if (isArray(source[key]) && !isArray(target[key]))
-                        target[key] = [];
+                        target[key] = extend([], ArrayProxy);
                     this.deepSetter(target[key], source[key])
                 }
                 else if (source[key] !== undefined) {
                     (function(key){
                         var _value = source[key];
                         Object.defineProperty(target, key, {
+                            enumerable: true,
+                            configurable: true,
                             get: function(){
                                 return _value
                             },
                             set: function(v){
+                                if(v === _value)return;
                                 _value = v;
+                                // self.init(); todo 性能问题
                             }
                         })
                     })(key);
@@ -149,6 +176,7 @@
             op.appendChild(oText);
             //先附加在文档碎片中
             oFragmeng.appendChild(op);
+            // console.log(c);
             // 清空再append文档碎片
             c.innerHTML = "";
             c.appendChild(oFragmeng);
@@ -201,6 +229,37 @@
 
         return target
     }
+
+    // Augment the ArrayProxy with convenience methods
+    def(ArrayProxy, '$set', function (index, data) {
+        return this.splice(index, 1, data)[0]
+    }, !hasProto);
+
+    def(ArrayProxy, '$remove', function (index) {
+        if (typeof index !== 'number') {
+            index = this.indexOf(index)
+        }
+        if (index > -1) {
+            return this.splice(index, 1)[0]
+        }
+    }, !hasProto);
+
+    // def(Array.prototype, "$set", function(){
+    //     var args = slice.call(arguments),
+    //         result = Array.prototype[method].apply(this, args);
+    //     var _obj = {
+    //         enumerable: true,
+    //         configurable: true,
+    //         get: function(){
+    //             return val
+    //         },
+    //         set: function(v){
+    //             if(val === v)return;
+    //             val = v;
+    //         }
+    //     };
+    //     return this.push(_obj)
+    // });
 
     /**
      * 简单的dom选择器
